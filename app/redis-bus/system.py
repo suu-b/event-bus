@@ -26,7 +26,7 @@ class System:
             "port": 6379
         }
 
-        self._queue = multiprocessing.Queue()
+        # self._queue = multiprocessing.Queue() # was maybe a leftover. doesnt seem to have any role
         self._channels = App_Channels(request_channel="broadcast:requests")        
 
         self._logger.info("Spinning up servers..")

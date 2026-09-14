@@ -134,6 +134,34 @@ def client_process(client_id, gateway_queue, activation_event):
         activation_event.clear()
         logger.info(f"Client {client_id}: Returning to dormancy.")
 
+
+# Flow/ just listing all the deps
+# master process creates a global scope and a queue to temporarily hold unassigned requests
+# 
+# All the processes created:
+# there are three daemon serves created in parallel. They all require the global scope.
+# A new gateway process is created
+# A garbage collector process is created
+# 
+# 
+# Clients are created. These clients would make the request
+# each client recieves a trigger event and the gateway queue
+
+# Client waits till its trigger event is set
+# Once triggered, the client creates a request and puts it in the gateway queue
+# Client clears its trigger event
+# 
+# The global scope is essentially a shared ds that contains a manager, a broadcast condition (manager.condition()), dict to contain locks for each request, and a dict to contain the requests themselves
+# 
+# the gatway process continously checks the gateway queue and adds new requests to the global scope, puts the shared manager lock so that processes can lock requests and notifies all once a new request is added
+# 
+# The server process sleeps till the broadcast signal is sent (using notify_all)
+# They find which request is pending
+# randomly decide to take it up, think for some (delay = random.uniform(1, 2); time.sleep(delay))
+# pick it up, wait for some time, mark it as completed
+# 
+# 
+# Garbage collector runs every minute to clear completed requests
 def master_process():
     global_scope = init_global_scope()
     logger.info("Global scope initialized")
