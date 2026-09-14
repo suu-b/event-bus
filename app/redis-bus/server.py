@@ -33,6 +33,8 @@ class Server:
         request = json.loads(message['data'])
         req_id = request['id']
         
+        # self._redis_client.record_metric(req_id, "t2", time.time())
+
         if random.choice([0, 1]) == 0:
             self._logger.info(f"Server {self.name}: Ignoring {req_id}")
             return
@@ -42,6 +44,8 @@ class Server:
 
         if self._redis_client.create_claim(req_id, self.name):
             self._logger.info(f"*** Server {self.name}: WON THE RACE for {req_id}! ***")
+
+            self._redis_client.record_metric(req_id, "t2", time.time())
         
             update_data = {
                 "status": Status.PICKED_UP.value,
@@ -70,6 +74,8 @@ class Server:
                 "server": self.name
             })
 
+            self._redis_client.record_metric(req_id, "t3", time.time())
+            
             self._redis_client.update_request_hash(req_id, {
                 "status": Status.COMPLETED.value,
                 "completed_at": time.time(),
@@ -77,6 +83,8 @@ class Server:
             })
 
             self._redis_client.instance.lpush("requests:completed", req_id)
+
+            self._redis_client.complete_metrics(req_id)
             
         else:
             self._logger.info(f"Server {self.name}: LOST. Request taken by another server")

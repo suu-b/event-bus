@@ -4,6 +4,7 @@ from typing import Callable
 from models import App_Channels, Request
 import sys
 import json
+import time
 
 from request_lifecycle import Status
 
@@ -27,6 +28,7 @@ class RedisClient:
         channel = self.channels.request_channel 
         self.instance.publish(channel, request.model_dump_json())
         self.logger.info(f"Published {request.id} to {channel}")
+        self.record_metric(request.id, "t1", time.time())
 
     def start_listening(self, callback: Callable[[dict], None]):
         channel = self.channels.request_channel
@@ -47,6 +49,7 @@ class RedisClient:
             "duration": f"{0}s"
         })
         self.instance.expire(key, expirytime)
+        self.init_metrics(request.id)
 
     def update_request_hash(self, request_id: str, data: dict):
         key = f"request_data:{request_id}"
@@ -87,3 +90,23 @@ class RedisClient:
             results.append(data)
 
         return results
+
+    # methods for bm
+    def init_metrics(self, request_id: str):
+        key = f"metrics:{request_id}"
+        self.instance.hset(key, mapping = {
+            "t0": time.time(),
+            "impl": "redis-bus",
+            "request_id": request_id
+        })
+        self.instance.expire(key, 86400)
+    
+    def record_metric(self, request_id: str, timestamp_name: str, value: float):
+        key = f"metrics:{request_id}"
+        self.instance.hset(key, timestamp_name, value)
+    
+
+    def complete_metrics(self, request_id: str, implementation: str = "redis-bus"):
+        key = f"metrics:{request_id}"
+        self.instance.lpush(f"metrics:raw:{implementation}", request_id)
+        self.logger.info(f"Completed metrics collection for {request_id}")
