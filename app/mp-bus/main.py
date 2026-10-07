@@ -88,14 +88,22 @@ def server_process(name, global_scope):
             if req['status'] != 'pending':
                 continue
 
-            decision = random.choice([0, 1])
+            # Each server independently decides whether to compete
+            # for this request.
+            # decision = random.choice([0, 1])
+            decision = 1
 
             if decision == 1:
+                # Simulate the time this server takes before trying
+                # to claim the request.
                 delay = random.uniform(1, 2)
                 time.sleep(delay)
 
                 if req_id not in global_scope['request_locks']:
                     continue
+
+                claimed = False
+                local_copy = None
 
                 with global_scope['request_locks'][req_id]:
                     if req_id not in global_scope['requests']:
@@ -116,29 +124,16 @@ def server_process(name, global_scope):
 
                         global_scope['requests'][req_id] = local_copy
 
+                        claimed = True
+
                         logger.info(
                             f"*** Server {name}: CLAIMED {req_id}! ***"
                         )
 
-                        process_time = random.randint(20, 25)
-                        time.sleep(process_time)
-
-                        if req_id not in global_scope['requests']:
-                            continue
-
-                        completed_copy = local_copy.copy()
-                        completed_copy['status'] = 'completed'
-                        completed_copy['completed_at'] = time.time()
-                        completed_copy['duration'] = process_time
-
-                        global_scope['requests'][req_id] = completed_copy
-
-                        redis_client.record_metric(req_id,"t3",time.time())
-                        redis_client.complete_metrics(req_id)
-
-                        logger.info(
-                            f"Server {name}: COMPLETED {req_id} "
-                            f"after {process_time:.2f}s"
+                        redis_client.record_metric(
+                            req_id,
+                            "t3",
+                            time.time()
                         )
 
                     else:
@@ -146,6 +141,36 @@ def server_process(name, global_scope):
                             f"Server {name}: Too slow for {req_id} "
                             f"(already taken)"
                         )
+
+                if claimed:
+                    # The request lock is now released.
+                    # Processing happens independently.
+                    process_time = random.uniform(1, 3)
+                    time.sleep(process_time)
+
+                    if req_id not in global_scope['requests']:
+                        continue
+
+                    completed_copy = local_copy.copy()
+                    completed_copy['status'] = 'completed'
+                    completed_copy['completed_at'] = time.time()
+                    completed_copy['duration'] = process_time
+
+                    global_scope['requests'][req_id] = completed_copy
+
+                    redis_client.record_metric(
+                        req_id,
+                        "t4",
+                        time.time()
+                    )
+
+                    redis_client.complete_metrics(req_id)
+
+                    logger.info(
+                        f"Server {name}: COMPLETED {req_id} "
+                        f"after {process_time:.2f}s"
+                    )
+
             else:
                 logger.info(
                     f"Server {name}: Decided to skip {req_id}"
@@ -174,11 +199,7 @@ def gateway_process(gateway_queue, global_scope):
         )
 
         global_scope['requests'][req_id] = request
-        redis_client.record_metric(
-            request['id'],
-            "t1",
-            time.time()
-        )
+        redis_client.record_metric(req_id, "t1", time.time())
 
         with global_scope['broadcast']:
             global_scope['broadcast'].notify_all()
@@ -256,7 +277,8 @@ class System:
 
         created_at = time.time()
 
-        self._redis_client.record_metric(req_id,"t0",created_at)
+        self._redis_client.init_metrics(req_id)
+        self._redis_client.record_metric(req_id, "t0", created_at)
 
         request = {
             "id": req_id,

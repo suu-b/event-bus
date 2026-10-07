@@ -39,6 +39,7 @@ class RedisClient:
                 callback(message)
 
     def create_request_hash(self, request: Request, expirytime: int):
+        self.init_metrics(request.id)
         key = f"request_data:{request.id}"
         self.instance.hset(key, mapping={
             "id": request.id,
@@ -49,7 +50,7 @@ class RedisClient:
             "duration": f"{0}s"
         })
         self.instance.expire(key, expirytime)
-        self.init_metrics(request.id)
+        self.record_metric(request.id, "t0", request.timestamp)
 
     def update_request_hash(self, request_id: str, data: dict):
         key = f"request_data:{request_id}"
@@ -95,7 +96,6 @@ class RedisClient:
     def init_metrics(self, request_id: str):
         key = f"metrics:{request_id}"
         self.instance.hset(key, mapping = {
-            "t0": time.time(),
             "impl": "redis-bus",
             "request_id": request_id
         })

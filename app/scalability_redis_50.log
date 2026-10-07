@@ -1,0 +1,15 @@
+
+==================================================
+BENCHMARKING ANALYSIS SUMMARY
+==================================================
+
+REDIS-BUS:
+  Total Requests: 50
+  End-to-End Time:
+    Mean: 31003.81ms
+    Median: 30815.22ms
+    P95: 55323.51ms
+    P99: 58930.52ms
+  Gateway Latency: 5.90ms
+  Queue Wait: 23149.22ms
+  Processing Time: 7848.69ms

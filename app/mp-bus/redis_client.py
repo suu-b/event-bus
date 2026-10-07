@@ -20,7 +20,6 @@ class RedisClient:
     def init_metrics(self, request_id: str):
         key = f"metrics:{request_id}"
         self.instance.hset(key, mapping = {
-            "t0": time.time(),
             "impl": "mp-bus",
             "request_id": request_id
         })

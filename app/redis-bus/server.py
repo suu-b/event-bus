@@ -33,14 +33,9 @@ class Server:
         request = json.loads(message['data'])
         req_id = request['id']
         
-        # self._redis_client.record_metric(req_id, "t2", time.time())
-
-        if random.choice([0, 1]) == 0:
-            self._logger.info(f"Server {self.name}: Ignoring {req_id}")
-            return
-
+        # For benchmarking, process all requests (no random skipping)
         self._logger.info(f"Server {self.name}: Interested in {req_id}. Processing...")
-        time.sleep(random.uniform(0.5, 1.5))
+        time.sleep(random.uniform(0.1, 0.5))
 
         if self._redis_client.create_claim(req_id, self.name):
             self._logger.info(f"*** Server {self.name}: WON THE RACE for {req_id}! ***")
@@ -54,11 +49,14 @@ class Server:
             self._redis_client.update_request_hash(req_id, update_data)
 
             # Once updated, now we need to do some progress on the task
-            duration = random.randint(20, 25)
+            # Reduced processing time for benchmarking (5-10 seconds instead of 20-25)
+            duration = random.randint(5, 10)
             self._redis_client.publish_progress(req_id, {
                 "event": "picked_up",
                 "server": self.name
             })
+
+            self._redis_client.record_metric(req_id, "t3", time.time())
 
             for i in range(duration):
                 time.sleep(1)
@@ -74,7 +72,7 @@ class Server:
                 "server": self.name
             })
 
-            self._redis_client.record_metric(req_id, "t3", time.time())
+            self._redis_client.record_metric(req_id, "t4", time.time())
             
             self._redis_client.update_request_hash(req_id, {
                 "status": Status.COMPLETED.value,

@@ -1,0 +1,15 @@
+
+==================================================
+BENCHMARKING ANALYSIS SUMMARY
+==================================================
+
+MP-BUS:
+  Total Requests: 3
+  End-to-End Time:
+    Mean: 31132.47ms
+    Median: 25092.79ms
+    P95: 44048.84ms
+    P99: 45733.82ms
+  Gateway Latency: 13.72ms
+  Queue Wait: 8777.75ms
+  Processing Time: 22341.00ms

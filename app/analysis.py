@@ -12,22 +12,24 @@ class MetricsAnalyzer:
         self.redis_client = redis.Redis(host=redis_host, port=redis_port, decode_responses=True)
     
     def get_all_metrics(self, impl: Optional[str] = None) -> List[Dict]:
-        if implementation:
-           request_ids = self.redis.lrange(f"metrics:raw:{implementation}", 0, -1)
+        if impl:
+           request_ids = self.redis_client.lrange(f"metrics:raw:{impl}", 0, -1)
         else:
-            mp_bus_ids = self.redis.lrange("metrics:raw:mp-bus", 0, -1)
-            redis_bus_ids = self.redis.lrange("metrics:raw:redis-bus", 0, -1)
+            mp_bus_ids = self.redis_client.lrange("metrics:raw:mp-bus", 0, -1)
+            redis_bus_ids = self.redis_client.lrange("metrics:raw:redis-bus", 0, -1)
             request_ids = mp_bus_ids + redis_bus_ids
         
         all_metrics = []
         for req_id in request_ids:
-            metrics = self.redis.hgetall(f"metrics:{req_id}");
+            metrics = self.redis_client.hgetall(f"metrics:{req_id}")
             if metrics and 't4' in metrics:
                 all_metrics.append(metrics)
+        
+        return all_metrics
     
-    def calculate_perfm(self, metrics_df: pd.DataFrame) -> pd.DataFrame:
+    def calculate_performance_metrics(self, metrics_df: pd.DataFrame) -> pd.DataFrame:
         for col in ['t0', 't1', 't2', 't3', 't4']:
-            metrics_df[col] = pd.to_datetime(metrics_df[col], unit='ms')
+            metrics_df[col] = pd.to_numeric(metrics_df[col], errors='coerce')
         
         metrics_df['e2e_time'] = metrics_df['t4'] - metrics_df['t0']
         metrics_df['gateway_latency'] = metrics_df['t1'] - metrics_df['t0']
@@ -37,7 +39,7 @@ class MetricsAnalyzer:
         
         return metrics_df
 
-        def generate_statistics(self, metrics_df: pd.DataFrame) -> Dict:
+    def generate_statistics(self, metrics_df: pd.DataFrame) -> Dict:
         stats = {}
         
         for impl in metrics_df['impl'].unique():
@@ -68,8 +70,7 @@ class MetricsAnalyzer:
         
         return stats
 
-
-        def compare_implementations(self, metrics_df: pd.DataFrame) -> Dict:
+    def compare_implementations(self, metrics_df: pd.DataFrame) -> Dict:
         comparison = {}
         
         mp_bus_df = metrics_df[metrics_df['impl'] == 'mp-bus']
@@ -91,8 +92,7 @@ class MetricsAnalyzer:
         
         return comparison
 
-
-        def print_summary(self, stats: Dict, comparison: Dict):
+    def print_summary(self, stats: Dict, comparison: Dict):
         """Print a formatted summary of the analysis"""
         print("\n" + "="*50)
         print("BENCHMARKING ANALYSIS SUMMARY")
@@ -159,12 +159,6 @@ def main():
     
     # Print summary
     analyzer.print_summary(stats, comparison if comparison else {})
-    
-    # Export results
-    if args.output in ['json', 'both']:
-        analyzer.export_results(metrics_df, stats, comparison if comparison else {}, 'json')
-    if args.output in ['csv', 'both']:
-        analyzer.export_results(metrics_df, stats, comparison if comparison else {}, 'csv')
  
 if __name__ == '__main__':
     main()
